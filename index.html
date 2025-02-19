@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Life Analyser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-white text-center flex flex-col items-center justify-center h-screen">
+    <h1 class="text-4xl font-bold mb-4">Life Analyser</h1>
+    
+    <!-- Login Button -->
+    <button id="login-btn" class="bg-blue-500 px-4 py-2 rounded mb-4">Login with Google</button>
+    <p id="user-email" class="hidden"></p>
+
+    <!-- Buttons for input -->
+    <div id="buttons" class="hidden space-x-4">
+        <button onclick="logDay('worst')" class="bg-red-500 px-4 py-2 rounded">Worst</button>
+        <button onclick="logDay('average')" class="bg-yellow-500 px-4 py-2 rounded">Average</button>
+        <button onclick="logDay('great')" class="bg-green-500 px-4 py-2 rounded">Great</button>
+    </div>
+
+    <!-- Bar Graph -->
+    <canvas id="lifeChart" class="mt-6 w-3/4 max-w-lg"></canvas>
+
+    <!-- Firebase & Script -->
+    <script type="module" src="script.js"></script>
+</body>
+</html>
