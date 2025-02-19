@@ -1,102 +1,93 @@
-// Firebase Setup
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } 
-    from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } 
-    from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
-
+// Firebase Config (Use Your Own Config)
 const firebaseConfig = {
     apiKey: "AIzaSyAxMPFj3Sbp3knrR9kEVLSJQ96m2dD3V4U",
     authDomain: "life-9eb60.firebaseapp.com",
     projectId: "life-9eb60",
-    storageBucket: "life-9eb60.firebasestorage.app",
+    storageBucket: "life-9eb60.appspot.com",
     messagingSenderId: "522366845118",
     appId: "1:522366845118:web:bc96adafcb0ed5da23deef"
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const provider = new GoogleAuthProvider();
-const db = getFirestore();
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-// UI Elements
-const loginBtn = document.getElementById("login-btn");
-const userEmail = document.getElementById("user-email");
-const buttonsDiv = document.getElementById("buttons");
+let userId = null;
 
-// Sign in function
-loginBtn.addEventListener("click", () => {
-    signInWithPopup(auth, provider).then(result => {
-        const user = result.user;
-        userEmail.innerText = `Logged in as: ${user.email}`;
-        userEmail.classList.remove("hidden");
-        buttonsDiv.classList.remove("hidden");
-    });
+// Handle Google Login
+document.getElementById("login-btn").addEventListener("click", () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).then(result => {
+        userId = result.user.uid;
+        document.getElementById("user-name").innerText = `Logged in as: ${result.user.displayName}`;
+        loadGraphData();
+    }).catch(error => console.error(error.message));
 });
 
-// Graph Data
-let dailyData = {};
-
-// Log Day Function
-async function logDay(choice) {
-    const user = auth.currentUser;
-    if (!user) return alert("Please login first!");
-
-    const today = new Date().toISOString().split('T')[0];
-    const docRef = doc(db, "users", user.uid);
-    const docSnap = await getDoc(docRef);
-    
-    let userData = docSnap.exists() ? docSnap.data() : { logs: {} };
-    userData.logs[today] = choice;
-    
-    await setDoc(docRef, userData);
-    updateGraph(userData.logs);
-}
-
-// Graph Logic
-const ctx = document.getElementById('lifeChart').getContext('2d');
-let chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: [],
-        datasets: [{
-            label: 'Daily Life Analysis',
-            data: [],
-            backgroundColor: ['red', 'yellow', 'green']
-        }]
-    },
-    options: {
-        responsive: true,
-        scales: {
-            y: { beginAtZero: true, max: 30 }
-        }
+// Function to Submit Mood Data
+function submitMood(mood) {
+    if (!userId) {
+        alert("Please log in first!");
+        return;
     }
-});
 
-// Update Graph
-async function updateGraph(logs) {
-    const labels = Object.keys(logs);
-    const values = labels.map(date => {
-        return logs[date] === "worst" ? 10 :
-               logs[date] === "average" ? 20 :
-               30;
-    });
+    const moodValues = { worst: 10, average: 20, great: 30 };
+    const today = new Date().toISOString().split('T')[0];
 
-    chart.data.labels = labels;
-    chart.data.datasets[0].data = values;
-    chart.update();
+    db.collection("users").doc(userId).collection("moods").doc(today).set({
+        mood: mood,
+        value: moodValues[mood],
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+        loadGraphData();
+    }).catch(error => console.error("Error saving mood:", error));
 }
 
-// Fetch data on login
-onAuthStateChanged(auth, async (user) => {
-    if (user) {
-        userEmail.innerText = `Logged in as: ${user.email}`;
-        userEmail.classList.remove("hidden");
-        buttonsDiv.classList.remove("hidden");
+// Function to Load Graph Data
+function loadGraphData() {
+    if (!userId) return;
 
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) updateGraph(docSnap.data().logs);
+    db.collection("users").doc(userId).collection("moods").orderBy("timestamp").get().then(snapshot => {
+        let labels = [], data = [];
+        snapshot.forEach(doc => {
+            labels.push(doc.id);
+            data.push(doc.data().value);
+        });
+        updateGraph(labels, data);
+    });
+}
+
+// Function to Update the Graph
+function updateGraph(labels, data) {
+    const ctx = document.getElementById('moodChart').getContext('2d');
+    if (window.moodChart) window.moodChart.destroy(); // Destroy old chart before creating a new one
+
+    window.moodChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Mood Analysis',
+                data: data,
+                backgroundColor: ['#ff4d4d', '#f1c40f', '#2ecc71'],
+                borderColor: '#fff',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true, max: 40 }
+            }
+        }
+    });
+}
+
+// Load Graph Data on Page Load
+firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+        userId = user.uid;
+        document.getElementById("user-name").innerText = `Logged in as: ${user.displayName}`;
+        loadGraphData();
     }
 });
